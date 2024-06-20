@@ -1,6 +1,6 @@
 # Breast Cancer Survival Prediction App
 
-![App Screenshot](image.png)
+![App Screenshot](imagen.png)
 
 ## Description
 
