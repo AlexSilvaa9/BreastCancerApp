@@ -1,6 +1,7 @@
 # Breast Cancer Survival Prediction App
 
-![App Screenshot](imagen.png)
+<img src="imagen.png" alt="App Screenshot" style="width:100%; max-width:800px;">
+
 
 ## Description
 
