@@ -1,15 +1,20 @@
 library(shiny)
-library(e1071)
+library(nnet)
 library(shinyjs)
 
-# Load the trained Naive Bayes model
+# Load the trained nnet model
 load("modelo_final.RData")
-modelo <- modelo_final
+
+# Definir niveles para cada variable
+niveles_edad <- c("0-39", "40-49", "50-59", "60-69", "70-79", "≥80")
+niveles_fdiag <- c("2000-2009", "2010-2019")
+niveles_estadio <- c("I", "II", "III", "IV")
+niveles_grado <- c("1", "2", "3")
 
 # Define the UI with a modern theme
 ui <- fluidPage(
-  includeCSS("bootstrap.css"), # Apply a modern theme
-  useShinyjs(), # Include shinyjs for JavaScript manipulation
+  includeCSS("bootstrap.css"), # Aplicar un tema moderno
+  useShinyjs(), # Incluir shinyjs para manipulación con JavaScript
   tags$head(
     tags$style(
       HTML("
@@ -19,30 +24,33 @@ ui <- fluidPage(
           ")
     )
   ),
-  div(style = " padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 30px;",
-      tags$h1("Breast Cancer Prediction App", style = " font-size: 30px;")),
+  
+  div(style = "padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 30px;",
+      tags$h1("Breast Cancer Survival Prediction App", style = "font-size: 30px;")),
   
   div(class = "container",
       h3("Enter the variables:"),
       fluidRow(
-        column(6, selectInput("input_edad", "Age:", choices = c("0-30", "31-40", "41-50", "51-60", "61-70", "+70"), selected = "0-30")),
-        column(6, selectInput("input_rest", "REst:", choices = c("N", "P"), selected = "N"))
+        column(6, selectInput("input_edad", "Age at Diagnosis:", choices = niveles_edad, selected = "0-39")),
+        column(6, selectInput("input_fdiag", "Year of Diagnosis:", choices = niveles_fdiag, selected = "2000-2009"))
       ),
       fluidRow(
-        column(6, selectInput("input_grado", "Grade:", choices = c("1", "2", "3"), selected = "1")),
-        column(6, selectInput("input_estadio", "Stage:", choices = c("T0-T1", "T2", "T3", "T4"), selected = "T0-T1"))
+        column(6, selectInput("input_estadio", "Stage:", choices = niveles_estadio, selected = "I")),
+        column(6, selectInput("input_grado", "Grade:", choices = niveles_grado, selected = "1"))
       ),
       fluidRow(
         column(6, actionButton("submit_button", "Make Prediction", class = "btn-primary")),
         column(6, actionButton("help_button", "Need help with oncological variables?", class = "btn-info"))
       ),
-      div(style = "height: 20px;"), # Add space below buttons
-      div(style = "border-bottom: 2px solid #ccc; margin-bottom: 20px;"), # Border for separation
+      div(style = "height: 20px;"), # Agregar espacio debajo de los botones
+      div(style = "border-bottom: 2px solid #ccc; margin-bottom: 20px;"), # Borde para separación
       div(id = "resultado_container", style = "display: none;",
           h3("Prediction Result:"),
           div(class = "alert alert-dismissible alert-light prediction-text",
               strong("Prediction: "), 
-              textOutput("resultado_prediccion")
+              htmlOutput("resultado_prediccion")
+              
+              
           )
       ),
       br(),
@@ -52,9 +60,9 @@ ui <- fluidPage(
               "This alert provides information about the oncological variables used in the prediction:",
               br(),
               p("- Age: The age of the patient."),
-              p("- REst: Hormone receptor status (N: Negative, P: Positive)."),
+              p("- Year of Diagnosis: The year in which the diagnosis was made."),
+              p("- Stage: The stage of the cancer (I, II, III, IV)."),
               p("- Grade: Histological grade of the tumor (1, 2, or 3)."),
-              p("- Stage: Tumor stage (T0-T1, T2, T3, or T4)."),
               br(),
               "It's important to note that this prediction is based on statistical modeling and should not replace personalized medical advice. Please consult with your healthcare provider for any concerns or questions regarding breast cancer diagnosis or treatment.",
               tags$button(type = "button", class = "btn-close", onclick = "shinyjs.hide('help_container');")
@@ -76,10 +84,10 @@ server <- function(input, output, session) {
   observeEvent(input$submit_button, {
     # Collect user input data
     datos_usuario <- data.frame(
-      Edad = factor(input$input_edad, levels = c("0-30", "31-40", "41-50", "51-60", "61-70", "+70")),
-      REst = factor(input$input_rest, levels = c("N", "P")),
-      Grado = factor(input$input_grado, levels = c("1", "2", "3")),
-      Estadio = factor(input$input_estadio, levels = c("T0-T1", "T2", "T3", "T4"))
+      EDAD_DCO = factor(input$input_edad, levels = niveles_edad),
+      F.DIAG = factor(input$input_fdiag, levels = niveles_fdiag),
+      ESTADIO = factor(input$input_estadio, levels = niveles_estadio),
+      GRADO = factor(input$input_grado, levels = niveles_grado)
     )
     
     # Show progress bar
@@ -92,12 +100,14 @@ server <- function(input, output, session) {
     }
     
     # Perform prediction using the loaded model
-    prediccion <- predict(modelo, newdata = datos_usuario, type = "raw")
-    probabilidad <- prediccion[2]
-    
+    prediccion <- predict(modelo_final, newdata = datos_usuario, type = "raw")
+    resultado <- ifelse(prediccion > 0.94, "Alive", "Exitus")
     # Display the prediction to the user
     output$resultado_prediccion <- renderText({
-      paste("The probability that the result is 'YES' is:", round(probabilidad, 2))
+      paste("The probability that the patient is alive is:", 
+              round(prediccion, 2), "<br>",
+              "Setting a threshold on 0.94 the prediction is:", resultado)
+      
     })
     
     # Hide the progress bar after completing the prediction
